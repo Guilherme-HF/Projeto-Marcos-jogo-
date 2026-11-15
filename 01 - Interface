@@ -1,125 +1,407 @@
+Esta etapa do processo tem como objetivo criar o menu + história + comandos do jogo + música, o uso de IA foi feito na criação de imanges/exeplicação de comandos da música/frequência e outras caracteristicas sonoras;
+- A lógica foi imposta a IA com o intuito de não destruir o código mas sim complementa-lo (certas coisas a IA recomendou, imagem dividida em quadros em um mesmo arquivo e o raylib a corta)
+- A ideia do jogo é criar um ambiente nostálgico, familiar e atraente para os olhos, por isto o uso da IA nas imagens;
 
 #include "raylib.h"
+#include <math.h>
+#include <stdlib.h>
 
 int main()
 {
-    //1.0 - Definição do tamanho da janela que nn será alterado
+    // 1.0 - Definição do tamanho da janela
     const int larguraTela = 1280;
     const int alturaTela = 720;
-    
-    //1.1 - Inicia a tela no usuario(VAR:LArgura/Altura/Nome da Janela)
+
+    // 1.1 - Inicia a tela no usuário/audio do jogo;
     InitWindow(larguraTela, alturaTela, "Hamburger Hunter");
     SetTargetFPS(60);
+    InitAudioDevice();
 
-    //1.2 - Texture2D: é um dado da biblioteca que armazena uma imagem
-    //       LoadTexture:Função  que carrega a imagem dos dados
+    //Criação do canal de áudio
+    //AudioStream:Var que recebe um tipo continui de audio, ou seja, barulhos repetitivos;
+    //LoadAudioStream:funcao que puxa o som para a var;
+    //Seus parametros são: Amostras/seg (Isto é a máquina nunca cria uma onda continua, mas cria as oscilações por segundo)/Bits p/amostra/canal(mono/Estéreo);
+    AudioStream som = LoadAudioStream(44100, 16, 1);
+    //Inicio da reprodução
+    PlayAudioStream(som);
+    //Volume (0.of - 1.0f), quanto maior mais alto ele é;
+    SetAudioStreamVolume(som, 0.3f);
+    //CONFIGURAÇÕES DA ONDA:
+        //FLOAT FASE: é a posição atual dentro de uma onda;
+        //FREQUENCIA: Quantas oscilações teremos por segundo;
+        //Quantidade de amostras: Quantas  amostras geraremos por seg;
+    float fase = 0.0f;
+    float notas[] = {440.0f,523.0f, 587.0f, 659.0f, 784.0f};
+    float notasHistoria[] = {261.63f,329.63f,392.00f,329.63f,293.66f};     
+    int notaAtual = 0;
+    int notaHistoriaAtual = 0;
+    float tempoHistoriaDecorrido = 0.0f;
+    float tempoNotaHistoria = 1.2f;
+    float tempoNota = 0.3f;
+    float frequencia = notas[notaAtual];
+    float tempoDecorrido = 0.0f;
+    const int quantidadeAmostras = 4096;
+
+    // 1.2 - Carregamento das imagens
     Texture2D fundo = LoadTexture("assets/menu_animado.png");
-    
-    //1.3 - Verificação se a imagem foi carregada;
-    //TraceLog:Manda uma mensagem para o terminal de erro;
-    //CloseWindo():Fecha a janela do jogo
-    if (fundo.id == 0)
+    Texture2D historia = LoadTexture("assets/download.png");
+
+    // 1.3 - Verificação se as imagens foram carregadas
+    if (fundo.id == 0 || historia.id == 0)
     {
-        TraceLog(LOG_ERROR, "Nao foi possivel carregar a imagem!");
+        TraceLog(LOG_ERROR, "Nao foi possivel carregar uma das imagens!");
+        UnloadTexture(fundo);
+        UnloadTexture(historia);
         CloseWindow();
         return 1;
     }
 
-    //1.4 - Criação da matriz das imagens(Na interface o jogo colocará várias imagens fazendo um video);
-    //Definição de Var da matriz, e calculo de imagens em um arquivo;
+    // 1.4 - Criação da matriz do menu
     const int colunas = 3;
     const int linhas = 3;
     const int totalFrames = colunas * linhas;
 
-    //1.5 - Descobrindo o tamanho de cada imagem do arquivo;
-    // o calculo é simples pega a largura total(fundo.width) e a altura total(fundo.height) e divide pela qnt de colunas e linhas
-    // assim calculando aproximadamento o tamanho de cada imagem;
+    // 1.5 - Descobrindo o tamanho de cada imagem do menu
     float larguraFrame = fundo.width / (float)colunas;
     float alturaFrame = fundo.height / (float)linhas;
 
-    //1.6 - Calculo da animação(tempo de tela):
-    //frameAtual:conta em qual quadro estamos
-    //tempo:conta quanto tempo passou
+    // 1.6 - Cálculo da animação do menu
     int frameAtual = 0;
     float tempo = 0.0f;
-
-    //Define quanto tempo cada imagem fica na tela, valores mais altos mais tempo de tela, valores mais próximos de 0 menos tempo de tela;
     float velocidadeAnimacao = 0.70f;
 
-    //OBS:definimos la em cima 60 FPS, isto é, a função frame por segundo suaviza o efeito pixelado, contudo, queremos deixar o jogo o mais retro possivél assim fazendo com que ele fique mais pixelado;
     SetTextureFilter(fundo, TEXTURE_FILTER_POINT);
+    SetTextureFilter(historia, TEXTURE_FILTER_POINT);
 
-    //1.7 - Loop de ciclo cas imagens:
+    // 1.7 - Configuração da matriz da história
+    const int colunasHistoria = 3;
+    const int linhasHistoria = 2;
+    const int totalCenas = 5;
+
+    float larguraCena = historia.width / (float)colunasHistoria;
+    float alturaCena = historia.height / (float)linhasHistoria;
+
+    // 1.8 - ENUM:funcao que permite criar nnomes que representam numeros inteiros;
+    enum Estado
+    {
+        MENU,
+        HISTORIA,
+        JOGO
+    };
+
+    Estado estadoAtual = MENU;
+
+    int cenaAtual = 0;
+
+    // 1.9 - Loop principal
     while (!WindowShouldClose())
     {
-        // Atualiza o tempo geral das imagens
-        tempo += GetFrameTime();
+        float deltaTime = GetFrameTime();
 
-        // Aqui vemos se o tempo total ja cehgou a velocidade da imagem
-        if (tempo >= velocidadeAnimacao)
-        {//ciclo para reinicar as imagens assim conseguiremos fazer vários loops e nn só um;
-            tempo = 0.0f;
+        // 2.0 - Controle do menu
+        if (estadoAtual == MENU)
+        {
+            tempoDecorrido += deltaTime;
 
-            frameAtual++;
+            if (tempoDecorrido >= tempoNota)
+        {
+            tempoDecorrido = 0.0f;
 
-            // Volta ao primeiro quadro depois do nono
-            if (frameAtual >= totalFrames)
+            notaAtual++;
+
+            if (notaAtual >= 5)
+        {
+            notaAtual = 0;
+        }
+
+    frequencia = notas[notaAtual];
+}
+            tempo += deltaTime;
+
+            if (tempo >= velocidadeAnimacao)
             {
-                frameAtual = 0;
+                tempo = 0.0f;
+                frameAtual++;
+
+                // Volta ao primeiro quadro depois do nono
+                if (frameAtual >= totalFrames)
+                {
+                    frameAtual = 0;
+                }
+            }
+
+            // ENTER inicia a história
+            if (IsKeyPressed(KEY_ENTER))
+            {   
+                notaHistoriaAtual = 0;
+                tempoHistoriaDecorrido = 0.0f;
+                frequencia = notasHistoria[notaHistoriaAtual];
+                estadoAtual = HISTORIA;
+                cenaAtual = 0;
             }
         }
 
-        // Descobre em qual coluna e linha esta o quadro
-        int colunaAtual = frameAtual % colunas;
-        int linhaAtual = frameAtual / colunas;
+        // 2.1 - Controle da história
+        else if (estadoAtual == HISTORIA)
+        {   // Controla o tempo de duração de cada nota da história;
+        tempoHistoriaDecorrido += deltaTime;
 
-        //1.8 - Achando o quadro entre os 9:
-        // RECTANGLE: comando que faz/corta um retângulo
-        Rectangle origem = {
-            colunaAtual * larguraFrame,
-            linhaAtual * alturaFrame,
-            larguraFrame,
-            alturaFrame
-        };
-
-        //1.9 - Coloca na tela a imagem recortada acima
-        Rectangle destino = {
-            0,
-            0,
-            (float)larguraTela,
-            (float)alturaTela
-        };
-        
-        //Vector2: comando que armazena cordenadas no raylib;
-        Vector2 origemImagem = { 0, 0 };
-
-        BeginDrawing();
-
-        ClearBackground(BLACK);
-
-        //2.0 - Desenhando o quadro na tela:
-        //DRAWTEXTUREPRO:desenha a textura com base no controle q vc disser:
-        // Imagem carregada/Parte que queremos recortar/Onde e tamanho/PNT de referência/ângulo de rotação/Cor de referência
-        DrawTexturePro(
-            fundo,
-            origem,
-            destino,
-            origemImagem,
-            0.0f,
-            WHITE
-        );
-
-        EndDrawing();
-
-        //2.1 - Fim da interface e inicio do jogo
-        if (IsKeyPressed(KEY_ENTER))
+// Verifica se já chegou o momento de trocar a nota;
+        if (tempoHistoriaDecorrido >= tempoNotaHistoria)
         {
-            break;
-        }
+         tempoHistoriaDecorrido = 0.0f;
+
+    // Avança para a próxima nota;
+    notaHistoriaAtual++;
+
+    // Volta para a primeira nota quando chegar ao final;
+    if (notaHistoriaAtual >= 5)
+    {
+        notaHistoriaAtual = 0;
     }
 
-    // Libera a imagem e fecha a janela
+    // Atualiza a frequência utilizada na geração do áudio;
+    frequencia = notasHistoria[notaHistoriaAtual];
+}
+            if (IsKeyPressed(KEY_ENTER))
+            {
+                // Avança para a próxima imagem
+                if (cenaAtual < totalCenas - 1)
+                {
+                    cenaAtual++;
+                }
+                else
+                {
+                    // Depois da quinta imagem, inicia o jogo
+                    estadoAtual = JOGO;
+                }
+            }
+        }
+        //IF (IsAudioStreamProcessed(som)) --- Verifica se o fluxo esta pronto
+        if (IsAudioStreamProcessed(som))
+    {   //Criação de um espaço para armazenar valores de audio
+        short amostras[4096];
+        short int valores[2] = {-8000, 8000};
+        //Conta matématica para cada instante da onda:
+        //sen de fase significa calcular o valor da onda, e vezes mil aumenta sua amplitude(som grave/agudo), a funcao short significa que irá alterar para bits
+ for (int i = 0; i < quantidadeAmostras; i++)
+{
+    // Verifica qual estado do jogo está ativo para escolher o tipo de onda;
+
+    if (estadoAtual == MENU)
+    {
+        // Verifica em qual parte da onda estamos utilizando a fase;
+        // PI representa metade de um ciclo completo (2*PI);
+        // Se a fase estiver abaixo de PI, estamos na primeira metade da onda;
+
+        if (fase < PI)
+        {
+            amostras[i] = -8000;
+        }
+        else
+        {
+            // Caso contrário, estamos na segunda metade da onda;
+            amostras[i] = 8000;
+        }
+    }
+    else if (estadoAtual == HISTORIA)
+    {
+        // Na história, utilizamos uma onda senoidal;
+        // sinf calcula o valor da onda e 3000 controla sua amplitude;
+
+        amostras[i] = (short)(sinf(fase) * 10000);
+    }
+    else
+    {
+        // Durante o jogo, por enquanto, não emitimos som;
+        amostras[i] = 0;
+    }
+
+    // Atualiza a fase a cada amostra;
+    // 2*PI representa um ciclo completo;
+    // A frequência determina quantos ciclos teremos por segundo;
+    // 44100 representa a quantidade de amostras geradas por segundo;
+    // O resultado determina quanto a fase avança em cada amostra;
+
+    fase += (2.0f * PI * frequencia) / 44100.0f;
+
+    // Mantém a fase dentro de um ciclo (0 até 2*PI);
+    // Quando ultrapassa 2*PI, retorna ao início, mantendo o restante;
+    // fmodf calcula o resto da divisão entre dois números decimais;
+
+    fase = fmodf(fase, 2.0f * PI);
+}
+    //Atualiza os valores do som a fim dele ser reproduzido, pense em um guia te falando para onde ir, ele emite os sinais diretos ao nosso som para ele ir atualizando e emitindo sons a todo segundo;
+    UpdateAudioStream(som, amostras, quantidadeAmostras);
+    }
+        // 2.2 - Desenho da interface
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        // MENU INICIAL
+        if (estadoAtual == MENU)
+        {
+            int colunaAtual = frameAtual % colunas;
+            int linhaAtual = frameAtual / colunas;
+
+            Rectangle origem = {
+                colunaAtual * larguraFrame,
+                linhaAtual * alturaFrame,
+                larguraFrame,
+                alturaFrame
+            };
+
+            Rectangle destino = {
+                0,
+                0,
+                (float)larguraTela,
+                (float)alturaTela
+            };
+
+            Vector2 origemImagem = {0, 0};
+
+            DrawTexturePro(
+                fundo,
+                origem,
+                destino,
+                origemImagem,
+                0.0f,
+                WHITE
+            );
+        }
+
+        // HISTÓRIA
+        else if (estadoAtual == HISTORIA)
+        {        
+            int colunaAtual = cenaAtual % colunasHistoria;
+            int linhaAtual = cenaAtual / colunasHistoria;
+
+            Rectangle origem = {
+                colunaAtual * larguraCena,
+                linhaAtual * alturaCena,
+                larguraCena,
+                alturaCena
+            };
+
+            Rectangle destino = {
+                0,
+                0,
+                (float)larguraTela,
+                (float)alturaTela
+            };
+
+            Vector2 origemImagem = {0, 0};
+
+            DrawTexturePro(
+                historia,
+                origem,
+                destino,
+                origemImagem,
+                0.0f,
+                WHITE
+            );
+             DrawRectangle(
+                15,
+                10,
+                425,
+                50,
+                BLACK
+            );
+            DrawRectangleLines(
+                15,
+                10,
+                425,
+                50,
+                WHITE
+            );
+            //DRAWTEXT:funcao que printa um valor na tela;
+            //Seus parametros são:Texto,X,Y,Tamanho,Cor
+            DrawText(
+                "PRESSIONE ENTER PARA CONTINUAR",
+                30,
+                25,
+                20,
+                WHITE
+            );
+        }
+
+        // INÍCIO DA GAMEPLAY
+        else if (estadoAtual == JOGO)
+        {
+            DrawRectangleLines(
+                400,
+                335,
+                60,
+                60,
+                WHITE
+            );
+            DrawRectangleLines(
+                400,
+                395,
+                60,
+                60,
+                WHITE
+            );
+            DrawRectangleLines(
+                340,
+                395,
+                60,
+                60,
+                WHITE
+            );
+            DrawRectangleLines(
+                460,
+                395,
+                60,
+                60,
+                WHITE
+            );
+            DrawRectangleLines(
+                640,
+                395,
+                300,
+                60,
+                WHITE
+            );
+            DrawLine(
+                740,
+                445,
+                840,
+                445,
+                WHITE
+            );
+            DrawText(
+                "W",420,345,35,WHITE
+            );
+            DrawText(
+                "S",420,410,35,WHITE
+            );
+            DrawText(
+                "A",360,410,35,WHITE
+            );
+            DrawText(
+                "D",480,410,35,WHITE
+            );
+             DrawText(
+                "COMANDOS:",500,150,45,WHITE
+            );
+            DrawText(
+                "Movimentação:",280,490,45,WHITE
+            );
+            DrawText(
+                "Atirar:",725,490,45,WHITE
+            );
+        }
+
+        EndDrawing();
+    }
+
+    // 2.3 - Libera as imagens e fecha a janela
     UnloadTexture(fundo);
+    UnloadTexture(historia);
+
+    UnloadAudioStream(som);
+    CloseAudioDevice();
     CloseWindow();
 
     return 0;
