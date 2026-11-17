@@ -1,0 +1,119 @@
+
+#include "raylib.h"
+#include <math.h>
+#include <stdlib.h>
+
+int main()
+{
+    int qnt = 4;
+    int cenaAtual = 0;
+    int cenaAtualAgradecimento = 0;
+    float tempoAgradecimento = 0.0f;
+    float velocidade = 2.0f;
+
+    // Controla se a tela de agradecimentos deve aparecer
+    bool mostrarAgradecimentos = false;
+
+    const int larguraTela = 1280;
+    const int alturaTela = 720;
+
+    InitWindow(larguraTela, alturaTela, "Final");
+    SetTargetFPS(60);
+
+    Texture2D final = LoadTexture("final.png");
+    Texture2D agradecimentos = LoadTexture("agradecimentos.png");
+
+    if (final.id == 0 || agradecimentos.id == 0)
+    {
+        TraceLog(LOG_ERROR, "Nao foi possivel carregar a imagem!");
+        UnloadTexture(final);
+        UnloadTexture(agradecimentos);
+        CloseWindow();
+        return 1;
+    }
+
+    int colunasAgradecimento = 1;
+    int linhasAgradecimentos = 1;
+    int total = colunasAgradecimento * linhasAgradecimentos;
+
+    int colunasFinal = 2;
+    int linhasFinal = 2;
+    int matriz = colunasFinal * linhasFinal;
+
+    float larguraFrame = final.width / (float)colunasFinal;
+    float alturaFrame = final.height / (float)linhasFinal;
+
+    float larguraAgradecimento = agradecimentos.width / (float)colunasAgradecimento;
+    float alturaAgradecimento = agradecimentos.height / (float)linhasAgradecimentos;
+
+    SetTextureFilter(final, TEXTURE_FILTER_POINT);
+    SetTextureFilter(agradecimentos, TEXTURE_FILTER_POINT);
+
+    while (!WindowShouldClose())
+    {
+        // Avanca para a proxima cena ao apertar ENTER
+        if (IsKeyPressed(KEY_ENTER) && !mostrarAgradecimentos)
+        {
+            if (cenaAtual < qnt - 1)
+            {
+                cenaAtual++;
+            }
+            else
+            {
+                mostrarAgradecimentos = true;
+            }
+        }
+
+        // Calcula a posicao da cena na spritesheet
+        Rectangle origem = {
+            (cenaAtual % colunasFinal) * larguraFrame,
+            (cenaAtual / colunasFinal) * alturaFrame,
+            larguraFrame,
+            alturaFrame
+        };
+
+        // Define onde a imagem sera desenhada na tela
+        Rectangle destino = {
+            0,
+            0,
+            (float)larguraTela,
+            (float)alturaTela
+        };
+
+        BeginDrawing();
+
+        ClearBackground(BLACK);
+
+        if (mostrarAgradecimentos)
+        {
+            DrawTexturePro(
+                agradecimentos,
+                (Rectangle){0, 0, (float)agradecimentos.width, (float)agradecimentos.height},
+                (Rectangle){0, 0, (float)larguraTela, (float)alturaTela},
+                (Vector2){0, 0},
+                0.0f,
+                WHITE
+            );
+        }
+        else
+        {
+            DrawTexturePro(
+                final,
+                origem,
+                destino,
+                (Vector2){0, 0},
+                0.0f,
+                WHITE
+            );
+        }
+
+        EndDrawing();
+    }
+
+    UnloadTexture(final);
+    UnloadTexture(agradecimentos);
+
+    CloseWindow();
+
+    return 0;
+}
