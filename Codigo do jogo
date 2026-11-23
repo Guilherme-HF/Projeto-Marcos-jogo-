@@ -1,0 +1,573 @@
+
+#include "raylib.h"
+#include <vector>
+#include <cmath>
+
+using namespace std;
+
+// tamanho da tela
+const int LARGURA = 800;
+const int ALTURA = 800;
+
+// configurações do jogo
+const int TAMANHO_JOGADOR = 48;
+const int TAMANHO_MONSTRO = 48;
+const int META_MORTES = 50;
+
+int fase = 1;
+int monstrosMortos = 0;
+
+bool gameOver = false;
+bool mudandoFase = false;
+bool venceu = false;
+
+float tempoSpawn = 0;
+float tempoTransicao = 0;
+
+// estrutura da bala
+struct Bala {
+    float x, y;
+    float vx, vy;
+};
+
+// estrutura do monstro
+struct Monstro {
+    float x, y;
+    int direcao;
+};
+
+// vetores do jogo
+vector<Bala> balas;
+vector<Monstro> monstros;
+
+// texturas do jogo
+Texture2D jogador;
+
+Texture2D mapas[3];
+
+Texture2D dinossauros[4];
+Texture2D homens[4];
+Texture2D aliens[4];
+
+// criar um monstro em uma das bordas da tela
+Monstro criarMonstro() {
+    Monstro m;
+
+    m.direcao = GetRandomValue(0, 3);
+
+    if (m.direcao == 0) {
+        m.x = 400;
+        m.y = 24;
+    }
+    else if (m.direcao == 1) {
+        m.x = 400;
+        m.y = 776;
+    }
+    else if (m.direcao == 2) {
+        m.x = 24;
+        m.y = 387;
+    }
+    else {
+        m.x = 776;
+        m.y = 387;
+    }
+
+    return m;
+}
+
+// escolher a imagem do monstro de acordo com a fase
+Texture2D escolherMonstro(int direcao) {
+    if (fase == 1) {
+        return dinossauros[direcao];
+    }
+    else if (fase == 2) {
+        return homens[direcao];
+    }
+    else {
+        return aliens[direcao];
+    }
+}
+
+// escolher o mapa de acordo com a fase
+Texture2D escolherMapa() {
+    return mapas[fase - 1];
+}
+
+int main() {
+
+    // inicia a janela do jogo
+    InitWindow(LARGURA, ALTURA, "jogo de sobrevivencia");
+
+    // define o limite de quadros por segundo
+    SetTargetFPS(60);
+
+    // carrega a imagem do jogador
+    jogador = LoadTexture("jogador.png");
+
+    // carrega os mapas
+    mapas[0] = LoadTexture("mapa1.png");
+    mapas[1] = LoadTexture("mapa2.png");
+    mapas[2] = LoadTexture("mapa3.png");
+
+    // carrega as imagens dos dinossauros
+    dinossauros[0] = LoadTexture("dinossauroCima.png");
+    dinossauros[1] = LoadTexture("dinossauroBaixo.png");
+    dinossauros[2] = LoadTexture("dinossauroEsquerda.png");
+    dinossauros[3] = LoadTexture("dinossauroDireita.png");
+
+    // carrega as imagens dos homens das cavernas
+    homens[0] = LoadTexture("homemCima.png");
+    homens[1] = LoadTexture("homemBaixo.png");
+    homens[2] = LoadTexture("homemEsquerda.png");
+    homens[3] = LoadTexture("homemDireita.png");
+
+    // carrega as imagens dos aliens
+    aliens[0] = LoadTexture("alienCima.png");
+    aliens[1] = LoadTexture("alienBaixo.png");
+    aliens[2] = LoadTexture("alienEsquerda.png");
+    aliens[3] = LoadTexture("alienDireita.png");
+
+    // posição inicial do jogador
+    float jogadorX = 376;
+    float jogadorY = 376;
+
+    // velocidades do jogo
+    float velocidadeJogador = 150;
+    float velocidadeMonstro = 80;
+    float velocidadeBala = 500;
+
+    // mantém o jogo funcionando até fechar a janela
+    while (!WindowShouldClose()) {
+
+        // pega o tempo de cada quadro
+        float delta = GetFrameTime();
+
+        // atualiza o jogo enquanto não perder ou vencer
+        if (!gameOver && !venceu) {
+
+            // verifica se está trocando de fase
+            if (mudandoFase) {
+
+                tempoTransicao += delta;
+
+                // espera 2,5 segundos para trocar de fase
+                if (tempoTransicao >= 2.5f) {
+
+                    fase++;
+
+                    // apaga todos os monstros e balas
+                    monstros.clear();
+                    balas.clear();
+
+                    monstrosMortos = 0;
+                    tempoSpawn = 0;
+                    tempoTransicao = 0;
+
+                    mudandoFase = false;
+
+                    // coloca o jogador no centro da tela
+                    jogadorX = 376;
+                    jogadorY = 376;
+                }
+            }
+
+            else {
+
+                // movimenta o jogador para cima
+                if (IsKeyDown(KEY_W)) {
+                    jogadorY -= velocidadeJogador * delta;
+                }
+
+                // movimenta o jogador para baixo
+                if (IsKeyDown(KEY_S)) {
+                    jogadorY += velocidadeJogador * delta;
+                }
+
+                // movimenta o jogador para a esquerda
+                if (IsKeyDown(KEY_A)) {
+                    jogadorX -= velocidadeJogador * delta;
+                }
+
+                // movimenta o jogador para a direita
+                if (IsKeyDown(KEY_D)) {
+                    jogadorX += velocidadeJogador * delta;
+                }
+
+                // impede o jogador de sair da tela
+                if (jogadorX < 0) jogadorX = 0;
+                if (jogadorY < 0) jogadorY = 0;
+
+                if (jogadorX > LARGURA - TAMANHO_JOGADOR) {
+                    jogadorX = LARGURA - TAMANHO_JOGADOR;
+                }
+
+                if (jogadorY > ALTURA - TAMANHO_JOGADOR) {
+                    jogadorY = ALTURA - TAMANHO_JOGADOR;
+                }
+
+                // cria uma bala quando aperta o botão esquerdo do mouse
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+
+                    // pega a posição do mouse
+                    Vector2 mouse = GetMousePosition();
+
+                    float centroX = jogadorX + TAMANHO_JOGADOR / 2;
+                    float centroY = jogadorY + TAMANHO_JOGADOR / 2;
+
+                    float dx = mouse.x - centroX;
+                    float dy = mouse.y - centroY;
+
+                    // calcula a distância entre o jogador e o mouse
+                    float distancia = sqrt(dx * dx + dy * dy);
+
+                    if (distancia > 0) {
+
+                        Bala b;
+
+                        b.x = centroX;
+                        b.y = centroY;
+
+                        // define a direção da bala
+                        b.vx = (dx / distancia) * velocidadeBala;
+                        b.vy = (dy / distancia) * velocidadeBala;
+
+                        balas.push_back(b);
+                    }
+                }
+
+                // cria um monstro a cada meio segundo
+                tempoSpawn += delta;
+
+                if (tempoSpawn >= 0.5f) {
+
+                    monstros.push_back(criarMonstro());
+
+                    tempoSpawn = 0;
+                }
+
+                // movimenta os monstros em direção ao jogador
+                for (int i = 0; i < (int)monstros.size(); i++) {
+
+                    float dx = jogadorX - monstros[i].x;
+                    float dy = jogadorY - monstros[i].y;
+
+                    float distancia = sqrt(dx * dx + dy * dy);
+
+                    if (distancia > 0) {
+
+                        monstros[i].x += (dx / distancia) * velocidadeMonstro * delta;
+                        monstros[i].y += (dy / distancia) * velocidadeMonstro * delta;
+                    }
+                }
+
+                // movimenta as balas
+                for (int i = (int)balas.size() - 1; i >= 0; i--) {
+
+                    balas[i].x += balas[i].vx * delta;
+                    balas[i].y += balas[i].vy * delta;
+
+                    // apaga as balas que saem da tela
+                    if (balas[i].x < 0 ||
+                        balas[i].x > LARGURA ||
+                        balas[i].y < 0 ||
+                        balas[i].y > ALTURA) {
+
+                        balas.erase(balas.begin() + i);
+                    }
+                }
+
+                // verifica se uma bala acertou um monstro
+                for (int i = (int)balas.size() - 1;
+                     i >= 0 && !mudandoFase && !venceu; i--) {
+
+                    for (int j = (int)monstros.size() - 1; j >= 0; j--) {
+
+                        float dx = balas[i].x - (monstros[j].x + 24);
+                        float dy = balas[i].y - (monstros[j].y + 24);
+
+                        float distancia = sqrt(dx * dx + dy * dy);
+
+                        if (distancia < 24) {
+
+                            // apaga a bala e o monstro atingido
+                            balas.erase(balas.begin() + i);
+                            monstros.erase(monstros.begin() + j);
+
+                            monstrosMortos++;
+
+                            // verifica se o jogador completou a fase
+                            if (monstrosMortos >= META_MORTES) {
+
+                                if (fase < 3) {
+
+                                    mudandoFase = true;
+                                    tempoTransicao = 0;
+
+                                    // apaga os monstros e as balas restantes
+                                    monstros.clear();
+                                    balas.clear();
+                                }
+                                else {
+
+                                    // termina o jogo depois da terceira fase
+                                    venceu = true;
+
+                                    monstros.clear();
+                                    balas.clear();
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+                }
+
+                // cria o retângulo do jogador para verificar colisões
+                Rectangle retJogador = {
+                    jogadorX,
+                    jogadorY,
+                    TAMANHO_JOGADOR,
+                    TAMANHO_JOGADOR
+                };
+
+                // verifica se algum monstro encostou no jogador
+                for (int i = 0; i < (int)monstros.size(); i++) {
+
+                    Rectangle retMonstro = {
+                        monstros[i].x,
+                        monstros[i].y,
+                        TAMANHO_MONSTRO,
+                        TAMANHO_MONSTRO
+                    };
+
+                    // verifica se os dois retângulos se encostaram
+                    if (CheckCollisionRecs(retJogador, retMonstro)) {
+
+                        gameOver = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // começa a desenhar na tela
+        BeginDrawing();
+
+        // pinta o fundo da tela de preto
+        ClearBackground(BLACK);
+
+        // pega o mapa da fase atual
+        Texture2D mapaAtual = escolherMapa();
+
+        // desenha o mapa na tela
+        if (mapaAtual.id != 0) {
+
+            DrawTexturePro(
+                mapaAtual,
+                { 0, 0, (float)mapaAtual.width, (float)mapaAtual.height },
+                { 0, 0, LARGURA, ALTURA },
+                { 0, 0 },
+                0,
+                WHITE
+            );
+        }
+
+        // desenha os elementos do jogo
+        if (!gameOver && !venceu) {
+
+            // desenha o jogador na tela
+            if (jogador.id != 0) {
+
+                DrawTexturePro(
+                    jogador,
+                    { 0, 0, (float)jogador.width, (float)jogador.height },
+                    { jogadorX, jogadorY, TAMANHO_JOGADOR, TAMANHO_JOGADOR },
+                    { 0, 0 },
+                    0,
+                    WHITE
+                );
+            }
+
+            // desenha as balas na tela
+            for (int i = 0; i < (int)balas.size(); i++) {
+
+                DrawCircle(
+                    (int)balas[i].x,
+                    (int)balas[i].y,
+                    5,
+                    YELLOW
+                );
+            }
+
+            // desenha os monstros na tela
+            for (int i = 0; i < (int)monstros.size(); i++) {
+
+                Texture2D textura = escolherMonstro(monstros[i].direcao);
+
+                if (textura.id != 0) {
+
+                    DrawTexturePro(
+                        textura,
+                        { 0, 0, (float)textura.width, (float)textura.height },
+                        {
+                            monstros[i].x,
+                            monstros[i].y,
+                            TAMANHO_MONSTRO,
+                            TAMANHO_MONSTRO
+                        },
+                        { 0, 0 },
+                        0,
+                        WHITE
+                    );
+                }
+            }
+
+            // mostra o número da fase
+            DrawText(
+                TextFormat("fase: %d", fase),
+                10,
+                10,
+                25,
+                WHITE
+            );
+
+            // mostra quantos monstros foram eliminados
+            DrawText(
+                TextFormat("monstros eliminados: %d/%d",
+                    monstrosMortos, META_MORTES),
+                10,
+                40,
+                20,
+                WHITE
+            );
+        }
+
+        // mostra a mensagem quando passa de fase
+        if (mudandoFase) {
+
+            // desenha um fundo escuro transparente
+            DrawRectangle(
+                0, 0, LARGURA, ALTURA,
+                Fade(BLACK, 0.65f)
+            );
+
+            // escreve a mensagem de parabéns
+            DrawText(
+                "parabens!",
+                280,
+                320,
+                50,
+                GREEN
+            );
+
+            if (fase == 1) {
+
+                DrawText(
+                    "voce passou para a fase 2!",
+                    170,
+                    390,
+                    30,
+                    WHITE
+                );
+            }
+            else {
+
+                DrawText(
+                    "voce passou para a fase final!",
+                    130,
+                    390,
+                    30,
+                    WHITE
+                );
+            }
+        }
+
+        // mostra a tela de game over
+        if (gameOver) {
+
+            DrawRectangle(
+                0, 0, LARGURA, ALTURA,
+                Fade(BLACK, 0.75f)
+            );
+
+            DrawText(
+                "game over",
+                270,
+                320,
+                50,
+                RED
+            );
+
+            DrawText(
+                TextFormat("fase alcancada: %d", fase),
+                300,
+                390,
+                25,
+                WHITE
+            );
+
+            DrawText(
+                "feche o jogo para sair",
+                270,
+                440,
+                20,
+                WHITE
+            );
+        }
+
+        // mostra a tela de vitoria
+        if (venceu) {
+
+            DrawRectangle(
+                0, 0, LARGURA, ALTURA,
+                Fade(BLACK, 0.75f)
+            );
+
+            DrawText(
+                "parabens!",
+                280,
+                280,
+                50,
+                GREEN
+            );
+
+            DrawText(
+                "voce venceu o jogo!",
+                200,
+                370,
+                35,
+                WHITE
+            );
+
+            DrawText(
+                "voce derrotou todos os monstros!",
+                160,
+                430,
+                25,
+                YELLOW
+            );
+        }
+
+        // termina de desenhar na tela
+        EndDrawing();
+    }
+
+    // libera a memoria usada pelas imagens
+    UnloadTexture(jogador);
+
+    for (int i = 0; i < 3; i++) {
+        UnloadTexture(mapas[i]);
+    }
+
+    for (int i = 0; i < 4; i++) {
+
+        UnloadTexture(dinossauros[i]);
+        UnloadTexture(homens[i]);
+        UnloadTexture(aliens[i]);
+    }
+
+    // fecha a janela do jogo
+    CloseWindow();
+
+    return 0;
+}
