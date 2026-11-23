@@ -12,7 +12,7 @@ Instruções de como jogar:
   A -> para esquerda
   S -> para baixo
   D -> para direita
-
+  OBS: Na hora de jogar cuide da localidade das imagens, caso contrário o jogo não rodará de maneira correta.
 Tecnologias Utilizadas:
   Biblioteca Raylib
   Linguagem c++
