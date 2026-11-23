@@ -1,0 +1,95 @@
+    ================================================================
+                         HAMBURGER HUNTER
+    ================================================================
+
+    PROJETO INTEGRADO - C++ + RAYLIB
+
+    ORGANIZACAO DO PROGRAMA
+    1. Menu inicial: animacao, musica e entrada na historia.
+    2. Historia: cinco cenas apresentadas em uma spritesheet.
+    3. Gameplay: jogador, tiros, monstros e tres fases.
+    4. Final: quatro cenas e tela de agradecimentos.
+
+    ----------------------------------------------------------------
+    REGRA PARA INFORMAR O CAMINHO DAS IMAGENS E DOS ARQUIVOS
+    ----------------------------------------------------------------
+    Todas as imagens deste exemplo devem ficar dentro de uma pasta
+    chamada "assets", que deve estar no mesmo diretorio do arquivo
+    Hamburger_Hunter.cpp (ou do executavel, dependendo de como o jogo
+    for iniciado).
+
+    Exemplo de organizacao:
+
+    HamburgerHunter/
+    |-- Hamburger_Hunter.cpp
+    |-- assets/
+        |-- menu_animado.png
+        |-- download.png
+        |-- jogador.png
+        |-- mapa1.png
+        |-- mapa2.png
+        |-- mapa3.png
+        |-- dinossauroCima.png
+        |-- dinossauroBaixo.png
+        |-- dinossauroEsquerda.png
+        |-- dinossauroDireita.png
+        |-- homemCima.png
+        |-- homemBaixo.png
+        |-- homemEsquerda.png
+        |-- homemDireita.png
+        |-- alienCima.png
+        |-- alienBaixo.png
+        |-- alienEsquerda.png
+        |-- alienDireita.png
+        |-- final.png
+        |-- agradecimentos.png
+
+    COMO ALTERAR O CAMINHO:
+    - Se a imagem estiver dentro da pasta assets, use, por exemplo:
+          "assets/jogador.png"
+    - Se estiver em outra pasta, escreva o caminho relativo a partir
+      da pasta de trabalho do programa. Exemplo:
+          "imagens/personagens/jogador.png"
+    - No Windows, prefira usar barras normais (/), como nos exemplos.
+    - O nome e a extensao precisam ser identicos aos do arquivo.
+    - Se mudar o nome ou a pasta de uma imagem, altere o caminho na
+      secao "CAMINHOS DOS ARQUIVOS" abaixo.
+    - O caminho nao e escolhido automaticamente pelo programa: ele e
+      escrito no codigo dentro de LoadTexture().
+
+    SPRITESHEETS:
+    - menu_animado.png: grade de 3 colunas por 3 linhas (9 quadros).
+    - download.png: grade de 3 colunas por 2 linhas (5 cenas usadas).
+    - final.png: grade de 2 colunas por 2 linhas (4 cenas).
+    As imagens precisam estar organizadas nessas grades para que os
+    recortes correspondam as cenas esperadas.
+
+    CONTROLES:
+    - ENTER: avancar do menu para a historia, avancar cenas e continuar.
+    - W, A, S, D: movimentar o jogador.
+    - Botao esquerdo do mouse: atirar na direcao do cursor.
+
+    COMPILACAO:
+    Compile este arquivo como C++ (por exemplo, extensao .cpp), com a
+    Raylib instalada e configurada no compilador.
+    Exemplo geral com MinGW:
+      g++ Hamburger_Hunter.cpp -o Hamburger_Hunter.exe -lraylib -lopengl32 -lgdi32 -lwinmm
+    A linha pode variar conforme a instalacao da Raylib.
+*/
+
+#include "raylib.h"
+#include <cmath>
+#include <vector>
+
+using namespace std;
+
+// ============================================================================
+// 1. CONFIGURACOES GERAIS E CAMINHOS DOS ARQUIVOS
+// ============================================================================
+
+// Tamanho unico da janela para todas as partes do jogo.
+const int LARGURA_TELA = 1280;
+const int ALTURA_TELA = 720;
+
+// Tamanho dos personagens durante a gameplay.
+const int TAMANHO_JOGADOR = 48;
